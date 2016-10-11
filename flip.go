@@ -236,10 +236,10 @@ func (c *Commander) Execute(ctx context.Context, arguments []string) ExitStatus 
 		switch exit {
 		case ExitSuccess:
 			os.Exit(0)
-			return exit
+			//return exit
 		case ExitFailure:
 			os.Exit(-1)
-			return exit
+			//return exit
 		case ExitUsageError:
 			c.Instruction()
 			return exit
