@@ -10,6 +10,8 @@ import (
 	"sort"
 	"strconv"
 	"time"
+
+	"github.com/Laughs-In-Flowers/data"
 )
 
 type Commander struct {
@@ -481,6 +483,26 @@ func (d *durationValue) Get() interface{} { return time.Duration(*d) }
 
 func (d *durationValue) String() string { return (*time.Duration)(d).String() }
 
+type StringVectorValue struct {
+	to string
+	*data.Vector
+}
+
+func NewStringVectorValue(key, value string, v *data.Vector) *StringVectorValue {
+	s := &StringVectorValue{key, v}
+	s.Set(value)
+	return s
+}
+
+func (v *StringVectorValue) Set(n string) error {
+	v.SetString(v.to, n)
+	return nil
+}
+
+func (v *StringVectorValue) Get() interface{} { return v.ToString(v.to) }
+
+func (v *StringVectorValue) String() string { return v.ToString(v.to) }
+
 type ErrorHandling int
 
 const (
@@ -768,6 +790,15 @@ func (f *FlagSet) Duration(name string, value time.Duration, usage string) *time
 	p := new(time.Duration)
 	f.DurationVar(p, name, value, usage)
 	return p
+}
+
+func (f *FlagSet) StringVectorVar(d *data.Vector, key string, value string, usage string) {
+	f.Var(NewStringVectorValue(key, value, d), key, usage)
+}
+
+func (f *FlagSet) StringVector(key string, d *data.Vector, usage string) *data.Vector {
+	f.StringVectorVar(d, key, "", usage)
+	return d
 }
 
 func (f *FlagSet) Var(value Value, name string, usage string) {
