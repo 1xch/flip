@@ -882,7 +882,7 @@ func (f *FlagSet) parseOne() (bool, error) {
 	flag, exists = m[name]
 	if !exists {
 		if name == "help" || name == "h" { // special case for nice help message.
-			f.usage()
+			f.Usage()
 			return false, ErrHelp
 		}
 		return false, f.failOnly("flag provided but not defined: -%s\n", name)
