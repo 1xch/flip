@@ -20,6 +20,7 @@ type flip struct {
 	name string
 	*commander
 	*instructer
+	*executer
 	*cleaner
 }
 
@@ -29,7 +30,8 @@ func New(name string) *flip {
 		cleaner: newCleaner(),
 	}
 	f.commander = newCommander(f)
-	f.instructer = newInstructer(f, os.Stdout)
+	f.instructer = newInstructer(f.name, f.commander, os.Stdout)
+	f.executer = newExecuter(f.commander, f.RunCleanup)
 	f.SetCleanup(ExitUsageError, f.Instruction)
 	f.SetGroup("", 0)
 	return f
@@ -111,6 +113,7 @@ type Command interface {
 	Tag() string
 	Priority() int
 	Escapes() bool
+	Eligible() bool
 	Use(io.Writer)
 	Execute(context.Context, []string) (context.Context, ExitStatus)
 	Flagger
@@ -121,6 +124,7 @@ type command struct {
 	use        string
 	priority   int
 	escapes    bool
+	hasRun     bool
 	cfn        CommandFunc
 	*FlagSet
 }
@@ -130,7 +134,7 @@ func NewCommand(group, tag, use string,
 	escapes bool,
 	cfn CommandFunc,
 	fs *FlagSet) Command {
-	return &command{group, tag, use, priority, escapes, cfn, fs}
+	return &command{group, tag, use, priority, escapes, false, cfn, fs}
 }
 
 func (c *command) SetGroup(k string) {
@@ -153,6 +157,10 @@ func (c *command) Escapes() bool {
 	return c.escapes
 }
 
+func (c *command) Eligible() bool {
+	return !c.hasRun
+}
+
 func (c *command) useHead(o io.Writer) {
 	white(o, fmt.Sprintf("-----\n%s [<flags>]:\n", c.tag))
 }
@@ -170,6 +178,7 @@ func (c *command) Use(o io.Writer) {
 
 func (c *command) Execute(ctx context.Context, v []string) (context.Context, ExitStatus) {
 	if c.cfn != nil {
+		c.hasRun = true
 		return c.cfn(ctx, v)
 	}
 	return ctx, ExitFailure
@@ -241,9 +250,9 @@ type instructer struct {
 	ifn            Cleanup
 }
 
-func newInstructer(f *flip, o io.Writer) *instructer {
+func newInstructer(tag string, c *commander, o io.Writer) *instructer {
 	i := &instructer{"%s [OPTIONS...] {COMMAND} ...\n\n", o, nil}
-	i.ifn = defaultInstruction(f, i)
+	i.ifn = defaultInstruction(tag, c, i)
 	return i
 }
 
@@ -268,14 +277,14 @@ func titleString(titleFmtString, name string, b *bytes.Buffer) {
 	title(b, fmt.Sprintf(titleFmtString, name))
 }
 
-func defaultInstruction(f *flip, i *instructer) Cleanup {
+func defaultInstruction(tag string, cm *commander, i *instructer) Cleanup {
 	return func(c context.Context) {
 		out := i.Out()
 		b := new(bytes.Buffer)
-		titleString(i.titleFmtString, f.name, b)
+		titleString(i.titleFmtString, tag, b)
 
-		sort.Sort(f.groups)
-		for _, g := range f.groups.has {
+		sort.Sort(cm.groups)
+		for _, g := range cm.groups.has {
 			g.Use(b)
 		}
 
@@ -294,6 +303,30 @@ func (i *instructer) SetOut(w io.Writer) {
 
 type Executer interface {
 	Execute(context.Context, []string) int
+}
+
+type executer struct {
+	iscmdfn isCommandFunc
+	cleanfn runCleanupFunc
+}
+
+func newExecuter(c *commander, cu runCleanupFunc) *executer {
+	return &executer{isCommand(c), cu}
+}
+
+type isCommandFunc func(string) (Command, bool, bool)
+
+func isCommand(c *commander) isCommandFunc {
+	return func(s string) (Command, bool, bool) {
+		for _, g := range c.groups.has {
+			for _, cmd := range g.commands {
+				if s == cmd.Tag() {
+					return cmd, true, cmd.Escapes()
+				}
+			}
+		}
+		return nil, false, false
+	}
 }
 
 type ExitStatus int
@@ -320,22 +353,11 @@ func (p pops) Less(i, j int) bool { return p[i].c.Priority() < p[j].c.Priority()
 
 func (p pops) Swap(i, j int) { p[i], p[j] = p[j], p[i] }
 
-func isCommand(c *commander, s string) (Command, bool, bool) {
-	for _, g := range c.groups.has {
-		for _, cmd := range g.commands {
-			if s == cmd.Tag() {
-				return cmd, true, cmd.Escapes()
-			}
-		}
-	}
-	return nil, false, false
-}
-
-func queue(f *flip, arguments []string) *pops {
+func queue(fn isCommandFunc, arguments []string) pops {
 	var ps pops
 
 	for i, v := range arguments {
-		if cmd, exists, escapes := isCommand(f.commander, v); exists {
+		if cmd, exists, escapes := fn(v); exists {
 			a := &pop{i, 0, cmd, nil}
 			ps = append(ps, a)
 			if escapes {
@@ -361,10 +383,10 @@ func queue(f *flip, arguments []string) *pops {
 
 	sort.Sort(ps)
 
-	return &ps
+	return ps
 }
 
-func execute(f *flip, ctx context.Context, cmd Command, arguments []string) (context.Context, ExitStatus) {
+func execute(ctx context.Context, cmd Command, arguments []string) (context.Context, ExitStatus) {
 	err := cmd.Parse(arguments)
 	if err != nil {
 		return ctx, ExitUsageError
@@ -372,23 +394,23 @@ func execute(f *flip, ctx context.Context, cmd Command, arguments []string) (con
 	return cmd.Execute(ctx, arguments)
 }
 
-func (f *flip) Execute(ctx context.Context, arguments []string) int {
+func (e *executer) Execute(ctx context.Context, arguments []string) int {
 	var exit ExitStatus
 	switch {
 	case len(arguments) < 1:
 		goto INSTRUCTION
 	default:
-		q := queue(f, arguments)
-		for _, p := range *q {
+		q := queue(e.iscmdfn, arguments)
+		for _, p := range q {
 			cmd := p.c
 			args := p.v[1:]
-			ctx, exit = execute(f, ctx, cmd, args)
+			ctx, exit = execute(ctx, cmd, args)
 			switch exit {
 			case ExitSuccess:
-				f.RunCleanup(exit, ctx)
+				e.cleanfn(exit, ctx)
 				return 0
 			case ExitFailure:
-				f.RunCleanup(exit, ctx)
+				e.cleanfn(exit, ctx)
 				return -1
 			case ExitUsageError:
 				goto INSTRUCTION
@@ -399,11 +421,13 @@ func (f *flip) Execute(ctx context.Context, arguments []string) int {
 	}
 
 INSTRUCTION:
-	f.RunCleanup(ExitUsageError, ctx)
+	e.cleanfn(ExitUsageError, ctx)
 	return -2
 }
 
 type Cleanup func(context.Context)
+
+type runCleanupFunc func(ExitStatus, context.Context)
 
 type Cleaner interface {
 	SetCleanup(ExitStatus, ...Cleanup)
