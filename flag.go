@@ -8,6 +8,8 @@ import (
 	"sort"
 	"strconv"
 	"time"
+
+	"github.com/Laughs-In-Flowers/data"
 )
 
 type Flag struct {
@@ -25,6 +27,29 @@ type Value interface {
 type Getter interface {
 	Value
 	Get() interface{}
+}
+
+type (
+	setFn func(string) error
+	getFn func() interface{}
+)
+
+type vectorValue struct {
+	to  string
+	sfn setFn
+	gfn getFn
+}
+
+func (v *vectorValue) Set(n string) error {
+	return v.sfn(n)
+}
+
+func (v *vectorValue) Get() interface{} {
+	return v.gfn()
+}
+
+func (v *vectorValue) String() string {
+	return fmt.Sprintf("%v", v.Get())
 }
 
 type boolValue bool
@@ -51,6 +76,21 @@ type boolFlag interface {
 	IsBoolFlag() bool
 }
 
+func boolVectorValue(key string, value bool, v *data.Vector) *vectorValue {
+	v.SetBool(key, value)
+	return &vectorValue{
+		key,
+		func(n string) error {
+			s, err := strconv.ParseBool(n)
+			v.SetBool(key, s)
+			return err
+		},
+		func() interface{} {
+			return v.ToBool(key)
+		},
+	}
+}
+
 type intValue int
 
 func newIntValue(val int, p *int) *intValue {
@@ -67,6 +107,21 @@ func (i *intValue) Set(s string) error {
 func (i *intValue) Get() interface{} { return int(*i) }
 
 func (i *intValue) String() string { return fmt.Sprintf("%v", *i) }
+
+func intVectorValue(key string, value int, v *data.Vector) *vectorValue {
+	v.SetInt(key, value)
+	return &vectorValue{
+		key,
+		func(n string) error {
+			s, err := strconv.ParseInt(n, 0, 64)
+			v.SetInt(key, int(s))
+			return err
+		},
+		func() interface{} {
+			return v.ToInt(key)
+		},
+	}
+}
 
 type int64Value int64
 
@@ -85,6 +140,21 @@ func (i *int64Value) Get() interface{} { return int64(*i) }
 
 func (i *int64Value) String() string { return fmt.Sprintf("%v", *i) }
 
+func int64VectorValue(key string, value int64, v *data.Vector) *vectorValue {
+	v.SetInt64(key, value)
+	return &vectorValue{
+		key,
+		func(n string) error {
+			s, err := strconv.ParseInt(n, 0, 64)
+			v.SetInt64(key, s)
+			return err
+		},
+		func() interface{} {
+			return v.ToInt64(key)
+		},
+	}
+}
+
 type uintValue uint
 
 func newUintValue(val uint, p *uint) *uintValue {
@@ -101,6 +171,21 @@ func (i *uintValue) Set(s string) error {
 func (i *uintValue) Get() interface{} { return uint(*i) }
 
 func (i *uintValue) String() string { return fmt.Sprintf("%v", *i) }
+
+func uintVectorValue(key string, value uint, v *data.Vector) *vectorValue {
+	v.SetUint(key, value)
+	return &vectorValue{
+		key,
+		func(n string) error {
+			s, err := strconv.ParseUint(n, 0, 64)
+			v.SetUint(key, uint(s))
+			return err
+		},
+		func() interface{} {
+			return v.ToUint(key)
+		},
+	}
+}
 
 type uint64Value uint64
 
@@ -119,6 +204,21 @@ func (i *uint64Value) Get() interface{} { return uint64(*i) }
 
 func (i *uint64Value) String() string { return fmt.Sprintf("%v", *i) }
 
+func uint64VectorValue(key string, value uint64, v *data.Vector) *vectorValue {
+	v.SetUint64(key, value)
+	return &vectorValue{
+		key,
+		func(n string) error {
+			s, err := strconv.ParseUint(n, 0, 64)
+			v.SetUint64(key, s)
+			return err
+		},
+		func() interface{} {
+			return v.ToUint64(key)
+		},
+	}
+}
+
 type stringValue string
 
 func newStringValue(val string, p *string) *stringValue {
@@ -134,6 +234,20 @@ func (s *stringValue) Set(val string) error {
 func (s *stringValue) Get() interface{} { return string(*s) }
 
 func (s *stringValue) String() string { return fmt.Sprintf("%s", *s) }
+
+func stringVectorValue(key, value string, v *data.Vector) *vectorValue {
+	v.SetString(key, value)
+	return &vectorValue{
+		key,
+		func(n string) error {
+			v.SetString(key, n)
+			return nil
+		},
+		func() interface{} {
+			return v.ToString(key)
+		},
+	}
+}
 
 type float64Value float64
 
@@ -151,6 +265,21 @@ func (f *float64Value) Set(s string) error {
 func (f *float64Value) Get() interface{} { return float64(*f) }
 
 func (f *float64Value) String() string { return fmt.Sprintf("%v", *f) }
+
+func float64VectorValue(key string, value float64, v *data.Vector) *vectorValue {
+	v.SetFloat64(key, value)
+	return &vectorValue{
+		key,
+		func(n string) error {
+			s, err := strconv.ParseFloat(n, 64)
+			v.SetFloat64(key, s)
+			return err
+		},
+		func() interface{} {
+			return v.ToFloat64(key)
+		},
+	}
+}
 
 type durationValue time.Duration
 
@@ -390,6 +519,15 @@ func (f *FlagSet) Bool(name string, value bool, usage string) *bool {
 	return p
 }
 
+func (f *FlagSet) BoolVectorVar(d *data.Vector, name, key string, value bool, usage string) {
+	f.Var(boolVectorValue(key, value, d), name, usage)
+}
+
+func (f *FlagSet) BoolVector(d *data.Vector, name, key, usage string) *data.Vector {
+	f.BoolVectorVar(d, name, key, false, usage)
+	return d
+}
+
 func (f *FlagSet) IntVar(p *int, name string, value int, usage string) {
 	f.Var(newIntValue(value, p), name, usage)
 }
@@ -398,6 +536,15 @@ func (f *FlagSet) Int(name string, value int, usage string) *int {
 	p := new(int)
 	f.IntVar(p, name, value, usage)
 	return p
+}
+
+func (f *FlagSet) IntVectorVar(d *data.Vector, name, key string, value int, usage string) {
+	f.Var(intVectorValue(key, value, d), name, usage)
+}
+
+func (f *FlagSet) IntVector(d *data.Vector, name, key, usage string) *data.Vector {
+	f.IntVectorVar(d, name, key, 0, usage)
+	return d
 }
 
 func (f *FlagSet) Int64Var(p *int64, name string, value int64, usage string) {
@@ -410,6 +557,15 @@ func (f *FlagSet) Int64(name string, value int64, usage string) *int64 {
 	return p
 }
 
+func (f *FlagSet) Int64VectorVar(d *data.Vector, name, key string, value int64, usage string) {
+	f.Var(int64VectorValue(key, value, d), name, usage)
+}
+
+func (f *FlagSet) Int64Vector(d *data.Vector, name, key, usage string) *data.Vector {
+	f.Int64VectorVar(d, name, key, 0, usage)
+	return d
+}
+
 func (f *FlagSet) UintVar(p *uint, name string, value uint, usage string) {
 	f.Var(newUintValue(value, p), name, usage)
 }
@@ -418,6 +574,15 @@ func (f *FlagSet) Uint(name string, value uint, usage string) *uint {
 	p := new(uint)
 	f.UintVar(p, name, value, usage)
 	return p
+}
+
+func (f *FlagSet) UintVectorVar(d *data.Vector, name, key string, value uint, usage string) {
+	f.Var(uintVectorValue(key, value, d), name, usage)
+}
+
+func (f *FlagSet) UintVector(d *data.Vector, name, key, usage string) *data.Vector {
+	f.UintVectorVar(d, name, key, 0, usage)
+	return d
 }
 
 func (f *FlagSet) Uint64Var(p *uint64, name string, value uint64, usage string) {
@@ -430,6 +595,15 @@ func (f *FlagSet) Uint64(name string, value uint64, usage string) *uint64 {
 	return p
 }
 
+func (f *FlagSet) Uint64VectorVar(d *data.Vector, name, key string, value uint64, usage string) {
+	f.Var(uint64VectorValue(key, value, d), name, usage)
+}
+
+func (f *FlagSet) Uint64Vector(d *data.Vector, name, key, usage string) *data.Vector {
+	f.UintVectorVar(d, name, key, 0, usage)
+	return d
+}
+
 func (f *FlagSet) StringVar(p *string, name string, value string, usage string) {
 	f.Var(newStringValue(value, p), name, usage)
 }
@@ -440,6 +614,15 @@ func (f *FlagSet) String(name string, value string, usage string) *string {
 	return p
 }
 
+func (f *FlagSet) StringVectorVar(d *data.Vector, name, key, value, usage string) {
+	f.Var(stringVectorValue(key, value, d), name, usage)
+}
+
+func (f *FlagSet) StringVector(d *data.Vector, name, key, usage string) *data.Vector {
+	f.StringVectorVar(d, name, key, "", usage)
+	return d
+}
+
 func (f *FlagSet) Float64Var(p *float64, name string, value float64, usage string) {
 	f.Var(newFloat64Value(value, p), name, usage)
 }
@@ -448,6 +631,15 @@ func (f *FlagSet) Float64(name string, value float64, usage string) *float64 {
 	p := new(float64)
 	f.Float64Var(p, name, value, usage)
 	return p
+}
+
+func (f *FlagSet) Float64VectorVar(d *data.Vector, name, key string, value float64, usage string) {
+	f.Var(float64VectorValue(key, value, d), name, usage)
+}
+
+func (f *FlagSet) Float64Vector(d *data.Vector, name, key, usage string) *data.Vector {
+	f.Float64VectorVar(d, name, key, 0, usage)
+	return d
 }
 
 func (f *FlagSet) DurationVar(p *time.Duration, name string, value time.Duration, usage string) {

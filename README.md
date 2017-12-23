@@ -1,3 +1,3 @@
 # flip
 
-A flag line processor for the go programming language
+A flag line processor for the Go programming language

@@ -195,7 +195,13 @@ func newGroups() *groups {
 
 func (g groups) Len() int { return len(g.has) }
 
-func (g groups) Less(i, j int) bool { return g.has[i].priority < g.has[j].priority }
+func (g groups) Less(i, j int) bool {
+	switch g.sortBy {
+	default:
+		return g.has[i].priority < g.has[j].priority
+	}
+	return false
+}
 
 func (g groups) Swap(i, j int) { g.has[i], g.has[j] = g.has[j], g.has[i] }
 
