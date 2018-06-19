@@ -4,39 +4,23 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"os"
-	"path"
 	"strings"
 )
 
-var Base Flip
-
-func SetCommand(cmd Command) {
-	Base.SetCommand(cmd)
-}
-
-func SetGroup(name string, priority int, cmds ...Command) {
-	Base.SetGroup(name, priority, cmds...)
-}
-
-func init() {
-	Base = New(path.Base(os.Args[0]))
-}
-
 type Help struct {
-	f                    Flip
-	Full, Subset, Single bool
-	Commands             string
+	f        Flip
+	Full     bool
+	Commands string
 }
 
 func NewHelp(f Flip) *Help {
-	return &Help{f, true, false, false, ""}
+	return &Help{f, true, ""}
 }
 
 func helpFlag(h *Help) *FlagSet {
 	fs := NewFlagSet("help", ContinueOnError)
 	fs.BoolVar(&h.Full, "full", true, "Print all help information.")
-	fs.StringVar(&h.Commands, "commands", "", "Print help information for a subset of comma delimited commands")
+	fs.StringVar(&h.Commands, "commands", "", "Print help information for a subset of comma delimited commands or command groups")
 	return fs
 }
 
@@ -51,33 +35,25 @@ func (h *Help) Command() Command {
 			switch {
 			case h.Commands != "":
 				h.Full = false
-				h.Subset = true
-			case len(a) > 1:
-				h.Commands = strings.Join(a, ",")
-				h.Subset = true
-			case len(a) == 1:
+			case len(a) > 0:
 				h.Full = false
-				h.Single = true
+				h.Commands = strings.Join(a, ",")
 			}
 			switch {
 			case h.Full:
 				h.f.Instruction(c)
-			case h.Subset:
+			case !h.Full:
 				var cs []Command
 				spl := strings.Split(h.Commands, ",")
 				for _, v := range spl {
 					gc := h.f.GetCommand(v)
-					if gc != nil {
-						cs = append(cs, gc)
+					if len(gc) > 0 {
+						cs = append(cs, gc...)
 					}
 				}
 				h.f.SubsetInstruction(cs...)(c)
-			case h.Single:
-				gc := h.f.GetCommand(a[0])
-				if gc != nil {
-					h.f.SubsetInstruction(gc)(c)
-				}
 			}
+			h.reset()
 			return c, ExitSuccess
 		},
 		helpFlag(h),
@@ -90,18 +66,20 @@ func (f *flip) addHelp() Flip {
 	return f
 }
 
-func SetHelp() {
-	Base.AddCommand("help")
+func (h *Help) reset() {
+	h.Full = true
+	h.Commands = ""
 }
 
 type Version struct {
+	f                                                  Flip
 	Package, Tag, Hash, Date                           string
 	PrintPackage, PrintTag, PrintHash, PrintDate, Full bool
 }
 
-func NewVersion(pkg, tag, hash, date string) *Version {
+func NewVersion(f Flip, pkg, tag, hash, date string) *Version {
 	return &Version{
-		pkg, tag, hash, date, false, false, false, false, true,
+		f, pkg, tag, hash, date, false, false, false, false, true,
 	}
 }
 
@@ -128,7 +106,13 @@ func (v *Version) String() string {
 	if v.Full {
 		b.WriteString(v.full())
 	}
+	v.reset()
 	return b.String()
+}
+
+func (v *Version) reset() {
+	v.Full = true
+	v.PrintPackage, v.PrintTag, v.PrintHash, v.PrintDate = false, false, false, false
 }
 
 func (v *Version) full() string {
@@ -157,7 +141,10 @@ func (v *Version) Command() Command {
 			case v.PrintPackage, v.PrintTag, v.PrintHash, v.PrintDate:
 				v.Full = false
 			}
-			fmt.Println(v.String())
+			b := new(bytes.Buffer)
+			b.WriteString(v.String())
+			o := v.f.Out()
+			fmt.Fprint(o, b)
 			return c, ExitSuccess
 		},
 		versionFlag(v),
@@ -181,11 +168,7 @@ func (f *flip) addVersion(args ...string) Flip {
 			}
 		}
 	}
-	v := NewVersion(p, t, h, d)
+	v := NewVersion(f, p, t, h, d)
 	f.SetGroup("version", 1000, v.Command())
 	return f
-}
-
-func SetVersion(args ...string) {
-	Base.AddCommand("version", args...)
 }

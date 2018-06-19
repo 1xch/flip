@@ -9,6 +9,7 @@ import (
 	"sort"
 )
 
+//
 type Flip interface {
 	Commander
 	Instructer
@@ -24,6 +25,7 @@ type flip struct {
 	*cleaner
 }
 
+//
 func New(name string) *flip {
 	f := &flip{
 		name:    name,
@@ -37,14 +39,16 @@ func New(name string) *flip {
 	return f
 }
 
+//
 type Grouper interface {
 	GetGroup(string) *group
 	SetGroup(string, int, ...Command) Flip
 }
 
+//
 type Commander interface {
 	Grouper
-	GetCommand(string) Command
+	GetCommand(...string) []Command
 	SetCommand(...Command) Flip
 	AddCommand(string, ...string) Flip
 }
@@ -58,6 +62,7 @@ func newCommander(f Flip) *commander {
 	return &commander{f, newGroups()}
 }
 
+//
 func (c *commander) GetGroup(name string) *group {
 	for _, g := range c.groups.has {
 		if name == g.name {
@@ -67,6 +72,7 @@ func (c *commander) GetGroup(name string) *group {
 	return nil
 }
 
+//
 func (c *commander) SetGroup(name string, priority int, cmds ...Command) Flip {
 	c.groups.has = append(c.groups.has, NewGroup(name, priority))
 	for _, v := range cmds {
@@ -76,17 +82,27 @@ func (c *commander) SetGroup(name string, priority int, cmds ...Command) Flip {
 	return c.f
 }
 
-func (c *commander) GetCommand(k string) Command {
+//
+func (c *commander) GetCommand(ks ...string) []Command {
+	var ret []Command
 	for _, g := range c.groups.has {
+		for _, k := range ks {
+			if k == g.name {
+				ret = append(ret, g.commands...)
+			}
+		}
 		for _, cmd := range g.commands {
-			if k == cmd.Tag() {
-				return cmd
+			for _, k := range ks {
+				if k == cmd.Tag() {
+					ret = append(ret, cmd)
+				}
 			}
 		}
 	}
-	return nil
+	return ret
 }
 
+//
 func (c *commander) SetCommand(cmds ...Command) Flip {
 	for _, cmd := range cmds {
 		g := c.GetGroup(cmd.Group())
@@ -95,6 +111,7 @@ func (c *commander) SetCommand(cmds ...Command) Flip {
 	return c.f
 }
 
+//
 func (f *flip) AddCommand(nc string, args ...string) Flip {
 	switch nc {
 	case "help":
@@ -105,8 +122,10 @@ func (f *flip) AddCommand(nc string, args ...string) Flip {
 	return f
 }
 
+//
 type CommandFunc func(context.Context, []string) (context.Context, ExitStatus)
 
+//
 type Command interface {
 	Group() string
 	SetGroup(string)
@@ -129,6 +148,7 @@ type command struct {
 	*FlagSet
 }
 
+//
 func NewCommand(group, tag, use string,
 	priority int,
 	escapes bool,
@@ -137,26 +157,32 @@ func NewCommand(group, tag, use string,
 	return &command{group, tag, use, priority, escapes, false, cfn, fs}
 }
 
+//
 func (c *command) SetGroup(k string) {
 	c.group = k
 }
 
+//
 func (c *command) Group() string {
 	return c.group
 }
 
+//
 func (c *command) Tag() string {
 	return c.tag
 }
 
+//
 func (c *command) Priority() int {
 	return c.priority
 }
 
+//
 func (c *command) Escapes() bool {
 	return c.escapes
 }
 
+//
 func (c *command) Eligible() bool {
 	return !c.hasRun
 }
@@ -169,6 +195,7 @@ func (c *command) useString(o io.Writer) {
 	white(o, fmt.Sprintf("\t%s\n\n", c.use))
 }
 
+//
 func (c *command) Use(o io.Writer) {
 	c.useHead(o)
 	c.useString(o)
@@ -176,6 +203,7 @@ func (c *command) Use(o io.Writer) {
 	fmt.Fprint(o, "\n")
 }
 
+//
 func (c *command) Execute(ctx context.Context, v []string) (context.Context, ExitStatus) {
 	if c.cfn != nil {
 		c.hasRun = true
@@ -193,8 +221,10 @@ func newGroups() *groups {
 	return &groups{"default", make([]*group, 0)}
 }
 
+//
 func (g groups) Len() int { return len(g.has) }
 
+//
 func (g groups) Less(i, j int) bool {
 	switch g.sortBy {
 	default:
@@ -203,6 +233,7 @@ func (g groups) Less(i, j int) bool {
 	return false
 }
 
+//
 func (g groups) Swap(i, j int) { g.has[i], g.has[j] = g.has[j], g.has[i] }
 
 type group struct {
@@ -212,12 +243,15 @@ type group struct {
 	commands []Command
 }
 
+//
 func NewGroup(name string, priority int, cs ...Command) *group {
 	return &group{name, priority, "", cs}
 }
 
+//
 func (g group) Len() int { return len(g.commands) }
 
+//
 func (g group) Less(i, j int) bool {
 	switch g.sortBy {
 	case "alpha":
@@ -228,15 +262,18 @@ func (g group) Less(i, j int) bool {
 	return false
 }
 
+//
 func (g group) Swap(i, j int) {
 	g.commands[i], g.commands[j] = g.commands[j], g.commands[i]
 }
 
+//
 func (g *group) SortBy(s string) {
 	g.sortBy = s
 	sort.Sort(g)
 }
 
+//
 func (g *group) Use(o io.Writer) {
 	g.SortBy("default")
 	for _, cmd := range g.commands {
@@ -244,6 +281,7 @@ func (g *group) Use(o io.Writer) {
 	}
 }
 
+//
 type Instructer interface {
 	Instruction(context.Context)
 	SubsetInstruction(c ...Command) func(context.Context)
@@ -262,10 +300,12 @@ func newInstructer(tag string, c *commander, o io.Writer) *instructer {
 	return i
 }
 
+//
 func (i *instructer) Instruction(c context.Context) {
 	i.ifn(c)
 }
 
+//
 func (i *instructer) SubsetInstruction(cs ...Command) func(context.Context) {
 	return func(c context.Context) {
 		out := i.Out()
@@ -274,7 +314,6 @@ func (i *instructer) SubsetInstruction(cs ...Command) func(context.Context) {
 			cmd.Use(b)
 		}
 		fmt.Fprint(out, b)
-		os.Exit(-2)
 	}
 }
 
@@ -295,18 +334,20 @@ func defaultInstruction(tag string, cm *commander, i *instructer) Cleanup {
 		}
 
 		fmt.Fprint(out, b)
-		os.Exit(-2)
 	}
 }
 
+//
 func (i *instructer) Out() io.Writer {
 	return i.output
 }
 
+//
 func (i *instructer) SetOut(w io.Writer) {
 	i.output = w
 }
 
+//
 type Executer interface {
 	Execute(context.Context, []string) int
 }
@@ -335,14 +376,15 @@ func isCommand(c *commander) isCommandFunc {
 	}
 }
 
+//
 type ExitStatus int
 
 const (
-	ExitNo         ExitStatus = iota // continue processing commands
-	ExitSuccess                      // return 0
-	ExitFailure                      // return -1
-	ExitUsageError                   // return -2
-	ExitAny                          // status for cleaning function setup, never return
+	ExitNo         ExitStatus = 999  // continue processing commands
+	ExitSuccess    ExitStatus = 0    // return 0
+	ExitFailure    ExitStatus = -1   // return -1
+	ExitUsageError ExitStatus = -2   // return -2
+	ExitAny        ExitStatus = -666 // status for cleaning function setup, never return
 )
 
 type pop struct {
@@ -400,10 +442,11 @@ func execute(ctx context.Context, cmd Command, arguments []string) (context.Cont
 	return cmd.Execute(ctx, arguments)
 }
 
+//
 func (e *executer) Execute(ctx context.Context, arguments []string) int {
 	var exit ExitStatus
 	switch {
-	case len(arguments) < 1:
+	case len(arguments) <= 1:
 		goto INSTRUCTION
 	default:
 		q := queue(e.iscmdfn, arguments)
@@ -413,11 +456,9 @@ func (e *executer) Execute(ctx context.Context, arguments []string) int {
 			ctx, exit = execute(ctx, cmd, args)
 			switch exit {
 			case ExitSuccess:
-				e.cleanfn(exit, ctx)
-				return 0
+				return e.cleanfn(exit, ctx)
 			case ExitFailure:
-				e.cleanfn(exit, ctx)
-				return -1
+				return e.cleanfn(exit, ctx)
 			case ExitUsageError:
 				goto INSTRUCTION
 			default:
@@ -427,17 +468,18 @@ func (e *executer) Execute(ctx context.Context, arguments []string) int {
 	}
 
 INSTRUCTION:
-	e.cleanfn(ExitUsageError, ctx)
-	return -2
+	return e.cleanfn(ExitUsageError, ctx)
 }
 
+//
 type Cleanup func(context.Context)
 
-type runCleanupFunc func(ExitStatus, context.Context)
+type runCleanupFunc func(ExitStatus, context.Context) int
 
+//
 type Cleaner interface {
 	SetCleanup(ExitStatus, ...Cleanup)
-	RunCleanup(ExitStatus, context.Context)
+	RunCleanup(ExitStatus, context.Context) int
 }
 
 type cleaner struct {
@@ -445,9 +487,10 @@ type cleaner struct {
 }
 
 func newCleaner() *cleaner {
-	return &cleaner{make(map[ExitStatus][]Cleanup, 0)}
+	return &cleaner{make(map[ExitStatus][]Cleanup)}
 }
 
+//
 func (c *cleaner) SetCleanup(e ExitStatus, cfns ...Cleanup) {
 	if c.cfns[e] == nil {
 		c.cfns[e] = make([]Cleanup, 0)
@@ -455,11 +498,18 @@ func (c *cleaner) SetCleanup(e ExitStatus, cfns ...Cleanup) {
 	c.cfns[e] = append(c.cfns[e], cfns...)
 }
 
-func (c *cleaner) RunCleanup(e ExitStatus, ctx context.Context) {
-	for _, cfn := range c.cfns[e] {
-		cfn(ctx)
+//
+func (c *cleaner) RunCleanup(e ExitStatus, ctx context.Context) int {
+	if cfns, ok := c.cfns[e]; ok {
+		for _, cfn := range cfns {
+			cfn(ctx)
+		}
 	}
-	for _, afn := range c.cfns[ExitAny] {
-		afn(ctx)
+	if afns, ok := c.cfns[ExitAny]; ok {
+		for _, afn := range afns {
+			afn(ctx)
+		}
 	}
+
+	return int(e)
 }
