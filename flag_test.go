@@ -270,7 +270,7 @@ func TestFlagSet(t *testing.T) {
 func catchShouldPanic(t *testing.T, m string, b *bytes.Buffer) {
 	r := recover()
 	if r == nil {
-		t.Errorf("'%s' should panic in this situation: %s, but did not\n\t\trecovery message: %s", m, b.String(), r)
+		t.Errorf("'%s:%s' should force exit in this situation, but did not\n\t\trecovery message: %s", m, b.String(), r)
 	}
 }
 

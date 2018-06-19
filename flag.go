@@ -143,26 +143,6 @@ func intVectorValue(key string, value int, v *data.Vector) *vectorValue {
 	}
 }
 
-//func intVectorRxValue(key, rx string, defaultI int, v *data.Vector) *vectorValue {
-//	v.SetInt(key, defaultI)
-//	rxp := regexp.MustCompile(rx)
-//	fn := func(s string, r *regexp.Regexp, v *data.Vector) error {
-//		fs := rxp.FindString(s)
-//		i := paramInt(r, fs, key)
-//		v.SetInt(key, i)
-//		return nil
-//	}
-//	return &vectorValue{
-//		key,
-//		func(n string) error {
-//			return fn(n, rxp, v)
-//		},
-//		func() interface{} {
-//			return v.ToInt(key)
-//		},
-//	}
-//}
-
 //
 type int64Value int64
 
