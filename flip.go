@@ -9,72 +9,102 @@ import (
 	"sort"
 )
 
-//
-type Flip interface {
+// Flpr is the flag line processor interface
+type Flpr interface {
+	Adder
 	Commander
 	Instructer
 	Executer
 	Cleaner
 }
 
-type flip struct {
-	name string
-	*commander
-	*instructer
-	*executer
-	*cleaner
+// A flag line processor implementing Flpr
+type Flp struct {
+	Commander
+	Instructer
+	Executer
+	Cleaner
+}
+
+// Return a new package default Flip corresponding to the provided string name.
+func New(name string) *Flp {
+	return NewFlp(
+		func(f *Flp) { f.Cleaner = newCleaner() },
+		func(f *Flp) { f.Commander = newCommander(f) },
+		func(f *Flp) { f.Instructer = newInstructer(name, f.Commander, os.Stdout) },
+		func(f *Flp) { f.Executer = newExecuter(f.Commander, f.RunCleanup) },
+		func(f *Flp) { f.SetCleanup(ExitUsageError, f.Instruction) },
+		func(f *Flp) { f.SetGroup("", 0) },
+	)
 }
 
 //
-func New(name string) *flip {
-	f := &flip{
-		name:    name,
-		cleaner: newCleaner(),
+type FlpConfig func(*Flp)
+
+//
+func NewFlp(fns ...FlpConfig) *Flp {
+	f := &Flp{}
+	for _, fn := range fns {
+		fn(f)
 	}
-	f.commander = newCommander(f)
-	f.instructer = newInstructer(f.name, f.commander, os.Stdout)
-	f.executer = newExecuter(f.commander, f.RunCleanup)
-	f.SetCleanup(ExitUsageError, f.Instruction)
-	f.SetGroup("", 0)
 	return f
 }
 
-//
-type Grouper interface {
-	GetGroup(string) *group
-	SetGroup(string, int, ...Command) Flip
+// Adds a builtin command by string name and string argument.
+// Currently, commands added by this method are:
+// - help (takes no other arguments)
+// - version (followed by package, tag, version, and hash information strings, in that order)
+func (f *Flp) AddBuiltIn(nc string, args ...string) Flpr {
+	switch nc {
+	case "help":
+		return f.addHelp()
+	case "version":
+		return f.addVersion(args...)
+	}
+	return f
 }
 
-//
+// An interface for grouping commands.
+type Grouper interface {
+	Groups() *Groups
+	GetGroup(string) *Group
+	SetGroup(string, int, ...Command) Flpr
+}
+
+// An interface for grouping nad managing commands for a Flip instance.
 type Commander interface {
 	Grouper
 	GetCommand(...string) []Command
-	SetCommand(...Command) Flip
-	AddCommand(string, ...string) Flip
+	SetCommand(...Command) Flpr
 }
 
 type commander struct {
-	f      Flip
-	groups *groups
+	f      Flpr
+	groups *Groups
 }
 
-func newCommander(f Flip) *commander {
+func newCommander(f Flpr) *commander {
 	return &commander{f, newGroups()}
 }
 
 //
-func (c *commander) GetGroup(name string) *group {
-	for _, g := range c.groups.has {
-		if name == g.name {
+func (c *commander) Groups() *Groups {
+	return c.groups
+}
+
+// Return a group corresponding to the provided name string, or nil is nothing found.
+func (c *commander) GetGroup(name string) *Group {
+	for _, g := range c.groups.Has {
+		if name == g.Name {
 			return g
 		}
 	}
 	return nil
 }
 
-//
-func (c *commander) SetGroup(name string, priority int, cmds ...Command) Flip {
-	c.groups.has = append(c.groups.has, NewGroup(name, priority))
+// Set a group with the string name and integer priority, containing the given commands.
+func (c *commander) SetGroup(name string, priority int, cmds ...Command) Flpr {
+	c.groups.Has = append(c.groups.Has, NewGroup(name, priority))
 	for _, v := range cmds {
 		v.SetGroup(name)
 	}
@@ -82,16 +112,16 @@ func (c *commander) SetGroup(name string, priority int, cmds ...Command) Flip {
 	return c.f
 }
 
-//
+// Get commands corresponding to the provided string keys.
 func (c *commander) GetCommand(ks ...string) []Command {
 	var ret []Command
-	for _, g := range c.groups.has {
+	for _, g := range c.groups.Has {
 		for _, k := range ks {
-			if k == g.name {
-				ret = append(ret, g.commands...)
+			if k == g.Name {
+				ret = append(ret, g.Commands...)
 			}
 		}
-		for _, cmd := range g.commands {
+		for _, cmd := range g.Commands {
 			for _, k := range ks {
 				if k == cmd.Tag() {
 					ret = append(ret, cmd)
@@ -102,37 +132,26 @@ func (c *commander) GetCommand(ks ...string) []Command {
 	return ret
 }
 
-//
-func (c *commander) SetCommand(cmds ...Command) Flip {
+// Set the provided Commands, returning a Flip instance (useful for chaining).
+func (c *commander) SetCommand(cmds ...Command) Flpr {
 	for _, cmd := range cmds {
 		g := c.GetGroup(cmd.Group())
-		g.commands = append(g.commands, cmd)
+		g.Commands = append(g.Commands, cmd)
 	}
 	return c.f
 }
 
-//
-func (f *flip) AddCommand(nc string, args ...string) Flip {
-	switch nc {
-	case "help":
-		return f.addHelp()
-	case "version":
-		return f.addVersion(args...)
-	}
-	return f
-}
-
-//
+// A function taking context.Context, and a string slice, returns context.Context
+// and an ExitStatus.
 type CommandFunc func(context.Context, []string) (context.Context, ExitStatus)
 
-//
+// An interface for encapsulating a command.
 type Command interface {
 	Group() string
 	SetGroup(string)
 	Tag() string
 	Priority() int
 	Escapes() bool
-	Eligible() bool
 	Use(io.Writer)
 	Execute(context.Context, []string) (context.Context, ExitStatus)
 	Flagger
@@ -148,7 +167,11 @@ type command struct {
 	*FlagSet
 }
 
-//
+// Returns a new Command provided group, tag, use strings, priority integer
+// a boolean indicating escape (stop processing command for other commands
+// after this command is found, passing the params to the current command instead
+// of going to another command), A CommandFunc to process the command, and a
+// corresponding FlagSet for the Command).
 func NewCommand(group, tag, use string,
 	priority int,
 	escapes bool,
@@ -157,34 +180,29 @@ func NewCommand(group, tag, use string,
 	return &command{group, tag, use, priority, escapes, false, cfn, fs}
 }
 
-//
+// Set the Command group to the provided string.
 func (c *command) SetGroup(k string) {
 	c.group = k
 }
 
-//
+// Returns the Command group as a string.
 func (c *command) Group() string {
 	return c.group
 }
 
-//
+// Returns the Command tag(i.e. primary title) as a string
 func (c *command) Tag() string {
 	return c.tag
 }
 
-//
+// Returns the Command priority in its group as an integer.
 func (c *command) Priority() int {
 	return c.priority
 }
 
-//
+// Returns a boolean indicating if the Command escapes processing further commands.
 func (c *command) Escapes() bool {
 	return c.escapes
-}
-
-//
-func (c *command) Eligible() bool {
-	return !c.hasRun
 }
 
 func (c *command) useHead(o io.Writer) {
@@ -195,7 +213,7 @@ func (c *command) useString(o io.Writer) {
 	white(o, fmt.Sprintf("\t%s\n\n", c.use))
 }
 
-//
+// Writes the Command's entire usage to the provided io.Writer.
 func (c *command) Use(o io.Writer) {
 	c.useHead(o)
 	c.useString(o)
@@ -203,7 +221,7 @@ func (c *command) Use(o io.Writer) {
 	fmt.Fprint(o, "\n")
 }
 
-//
+// Executes the Commands CommandFunc.
 func (c *command) Execute(ctx context.Context, v []string) (context.Context, ExitStatus) {
 	if c.cfn != nil {
 		c.hasRun = true
@@ -212,76 +230,78 @@ func (c *command) Execute(ctx context.Context, v []string) (context.Context, Exi
 	return ctx, ExitFailure
 }
 
-type groups struct {
-	sortBy string
-	has    []*group
+type Groups struct {
+	SortBy string
+	Has    []*Group
 }
 
-func newGroups() *groups {
-	return &groups{"default", make([]*group, 0)}
+func newGroups() *Groups {
+	return &Groups{"default", make([]*Group, 0)}
 }
 
-//
-func (g groups) Len() int { return len(g.has) }
+// groups Len function for sort.Sort
+func (g Groups) Len() int { return len(g.Has) }
 
-//
-func (g groups) Less(i, j int) bool {
-	switch g.sortBy {
+// groups Less function for sort.Sort
+func (g Groups) Less(i, j int) bool {
+	switch g.SortBy {
 	default:
-		return g.has[i].priority < g.has[j].priority
+		return g.Has[i].Priority < g.Has[j].Priority
 	}
 	return false
 }
 
-//
-func (g groups) Swap(i, j int) { g.has[i], g.has[j] = g.has[j], g.has[i] }
+// groups Swap function for sort.Sort
+func (g Groups) Swap(i, j int) { g.Has[i], g.Has[j] = g.Has[j], g.Has[i] }
 
-type group struct {
-	name     string
-	priority int
+type Group struct {
+	Name     string
+	Priority int
 	sortBy   string
-	commands []Command
+	Commands []Command
 }
 
-//
-func NewGroup(name string, priority int, cs ...Command) *group {
-	return &group{name, priority, "", cs}
+// Returns a new group provided the string name, priority integer, and any
+// number of Command.
+func NewGroup(name string, priority int, cs ...Command) *Group {
+	return &Group{name, priority, "", cs}
 }
 
-//
-func (g group) Len() int { return len(g.commands) }
+// group Len function for sort.Sort
+func (g Group) Len() int { return len(g.Commands) }
 
-//
-func (g group) Less(i, j int) bool {
+// group Less function for sort.Sort
+func (g Group) Less(i, j int) bool {
 	switch g.sortBy {
 	case "alpha":
-		return g.commands[i].Tag() < g.commands[j].Tag()
+		return g.Commands[i].Tag() < g.Commands[j].Tag()
 	default:
-		return g.commands[i].Priority() < g.commands[j].Priority()
+		return g.Commands[i].Priority() < g.Commands[j].Priority()
 	}
 	return false
 }
 
-//
-func (g group) Swap(i, j int) {
-	g.commands[i], g.commands[j] = g.commands[j], g.commands[i]
+// group Swap function for sort.Sort
+func (g Group) Swap(i, j int) {
+	g.Commands[i], g.Commands[j] = g.Commands[j], g.Commands[i]
 }
 
-//
-func (g *group) SortBy(s string) {
+// Set the groups sorting parameter. "alpha" indicating alphabetic sorting
+// is the only currently available outside of the default sort by priority.
+func (g *Group) SortBy(s string) {
 	g.sortBy = s
 	sort.Sort(g)
 }
 
-//
-func (g *group) Use(o io.Writer) {
+// Writes the entire group usage to the provided io.Writer.
+func (g *Group) Use(o io.Writer) {
 	g.SortBy("default")
-	for _, cmd := range g.commands {
+	for _, cmd := range g.Commands {
 		cmd.Use(o)
 	}
 }
 
-//
+// An interface for providing instruction i.e. writes usage strings.
 type Instructer interface {
 	Instruction(context.Context)
 	SubsetInstruction(c ...Command) func(context.Context)
@@ -294,18 +314,18 @@ type instructer struct {
 	ifn            Cleanup
 }
 
-func newInstructer(tag string, c *commander, o io.Writer) *instructer {
+func newInstructer(tag string, cm Commander, o io.Writer) *instructer {
 	i := &instructer{"%s [OPTIONS...] {COMMAND} ...\n\n", o, nil}
-	i.ifn = defaultInstruction(tag, c, i)
+	i.ifn = defaultInstruction(tag, cm, i)
 	return i
 }
 
-//
+// Given a context.Context writes the what the Instructer is configured to write.
 func (i *instructer) Instruction(c context.Context) {
 	i.ifn(c)
 }
 
-//
+// Returns a function to write instructions for a subset of provided Commands.
 func (i *instructer) SubsetInstruction(cs ...Command) func(context.Context) {
 	return func(c context.Context) {
 		out := i.Out()
@@ -322,14 +342,15 @@ func titleString(titleFmtString, name string, b *bytes.Buffer) {
 	title(b, fmt.Sprintf(titleFmtString, name))
 }
 
-func defaultInstruction(tag string, cm *commander, i *instructer) Cleanup {
+func defaultInstruction(tag string, cm Commander, i *instructer) Cleanup {
 	return func(c context.Context) {
 		out := i.Out()
 		b := new(bytes.Buffer)
 		titleString(i.titleFmtString, tag, b)
 
-		sort.Sort(cm.groups)
-		for _, g := range cm.groups.has {
+		gs := cm.Groups()
+		sort.Sort(gs)
+		for _, g := range gs.Has {
 			g.Use(b)
 		}
 
@@ -337,17 +358,17 @@ func defaultInstruction(tag string, cm *commander, i *instructer) Cleanup {
 	}
 }
 
-//
+// The io.Writer configured to the Instructor.
 func (i *instructer) Out() io.Writer {
 	return i.output
 }
 
-//
+// Set the provided io.Writer to the Instructor.
 func (i *instructer) SetOut(w io.Writer) {
 	i.output = w
 }
 
-//
+// An interface for command execution.
 type Executer interface {
 	Execute(context.Context, []string) int
 }
@@ -357,16 +378,17 @@ type executer struct {
 	cleanfn runCleanupFunc
 }
 
-func newExecuter(c *commander, cu runCleanupFunc) *executer {
-	return &executer{isCommand(c), cu}
+func newExecuter(cm Commander, cu runCleanupFunc) *executer {
+	return &executer{isCommand(cm), cu}
 }
 
 type isCommandFunc func(string) (Command, bool, bool)
 
-func isCommand(c *commander) isCommandFunc {
+func isCommand(cm Commander) isCommandFunc {
 	return func(s string) (Command, bool, bool) {
-		for _, g := range c.groups.has {
-			for _, cmd := range g.commands {
+		gs := cm.Groups()
+		for _, g := range gs.Has {
+			for _, cmd := range g.Commands {
 				if s == cmd.Tag() {
 					return cmd, true, cmd.Escapes()
 				}
@@ -376,7 +398,7 @@ func isCommand(c *commander) isCommandFunc {
 	}
 }
 
-//
+// An integer type useful for marking results of commands.
 type ExitStatus int
 
 const (
@@ -395,10 +417,13 @@ type pop struct {
 
 type pops []*pop
 
+// internal pops type Len function for sort.Sort
 func (p pops) Len() int { return len(p) }
 
+//  internal pops type Less function for sort.Sort
 func (p pops) Less(i, j int) bool { return p[i].c.Priority() < p[j].c.Priority() }
 
+//  internal pops type Swap function for sort.Sort
 func (p pops) Swap(i, j int) { p[i], p[j] = p[j], p[i] }
 
 func queue(fn isCommandFunc, arguments []string) pops {
@@ -442,7 +467,8 @@ func execute(ctx context.Context, cmd Command, arguments []string) (context.Cont
 	return cmd.Execute(ctx, arguments)
 }
 
-//
+// The Execute function taking a context.Context, and slice of string arguments,
+// returning an integer corresponding to an ExitStatus.
 func (e *executer) Execute(ctx context.Context, arguments []string) int {
 	var exit ExitStatus
 	switch {
@@ -471,12 +497,12 @@ INSTRUCTION:
 	return e.cleanfn(ExitUsageError, ctx)
 }
 
-//
+// A cleanup function taking a context.Context only.
 type Cleanup func(context.Context)
 
 type runCleanupFunc func(ExitStatus, context.Context) int
 
-//
+// An interface for post-command actions.
 type Cleaner interface {
 	SetCleanup(ExitStatus, ...Cleanup)
 	RunCleanup(ExitStatus, context.Context) int
@@ -490,7 +516,7 @@ func newCleaner() *cleaner {
 	return &cleaner{make(map[ExitStatus][]Cleanup)}
 }
 
-//
+// Set the provided Cleanup functions to be run on the provided ExitStatus.
 func (c *cleaner) SetCleanup(e ExitStatus, cfns ...Cleanup) {
 	if c.cfns[e] == nil {
 		c.cfns[e] = make([]Cleanup, 0)
@@ -498,7 +524,7 @@ func (c *cleaner) SetCleanup(e ExitStatus, cfns ...Cleanup) {
 	c.cfns[e] = append(c.cfns[e], cfns...)
 }
 
-//
+// Given an ExitStatus and a context.Context, runs any associated Cleanup functions.
 func (c *cleaner) RunCleanup(e ExitStatus, ctx context.Context) int {
 	if cfns, ok := c.cfns[e]; ok {
 		for _, cfn := range cfns {

@@ -1,5 +1,14 @@
 ## Changelog
 
+### flip 0.0.4 (22.08.2018)
+
+- changes to api & nomenclature to accomodate external use & configuration
+
+### flip 0.0.3 (19.06.2018)
+
+- testing & associated finetuneing
+- RegexVar & RegexVectorVar flag functionality
+
 ### flip 0.0.2 (22.11.2017)
 
 - continued rewriting & refactoring

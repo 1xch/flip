@@ -2,7 +2,9 @@ package flip
 
 import (
 	"bytes"
+	"fmt"
 	"reflect"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -23,6 +25,8 @@ type fexp struct {
 }
 
 var vec *data.Vector
+
+var rgxTestExp = "^[a-z]+\\[[0-9]+\\]$"
 
 func init() {
 	vec = data.New("test_vector")
@@ -134,21 +138,71 @@ func init() {
 		},
 		{
 			"Float64Vector", "f64v",
-			[]interface{}{vec, "f64v", "f64vKey", "A vector backed float64 flag"},
+			[]interface{}{vec, "f64v", "f64vKey", "A vector `(not a typo) backed float64 flag"},
 			float64(500.0),
 			[][]string{{"-f64v", "500.0"}, {"-f64v", "500"}},
-			[]string{"-f64v float", "A vector backed float64 flag"},
+			[]string{"-f64v float", "A vector `(not a typo) backed float64 flag"},
 			false,
 		},
 		{
 			"Duration", "d",
-			[]interface{}{"d", time.Second * 1, "A duration flag"},
+			[]interface{}{"d", time.Second * 0, "A duration flag"},
 			time.Second * 500,
 			[][]string{{"-d", "500s"}},
 			[]string{"-d duration", "A duration flag"},
 			false,
 		},
 		{
+			"DurationVector", "dv",
+			[]interface{}{vec, "dv", "dvKey", "A vector backed duration flag"},
+			time.Second * 500,
+			[][]string{{"-dv", "500s"}},
+			[]string{"-dv duration", "A vector backed duration flag"},
+			false,
+		},
+		{
+			"RegexVar", "r",
+			[]interface{}{
+				"r",
+				"A regex flag",
+				func(s string, rs ...*regexp.Regexp) error {
+					for _, r := range rs {
+						if !r.MatchString(s) {
+							return fmt.Errorf("regex flag '%s | %s': No match, where expected match", rgxTestExp, s)
+						}
+					}
+					return nil
+				},
+				rgxTestExp,
+			},
+			rgxTestExp,
+			[][]string{{"-r", "adam[23]"}, {"-r", "eve[7]"}},
+			[]string{"-r string", "A regex flag"},
+			false,
+		},
+		{
+			"RegexVectorVar", "rv",
+			[]interface{}{
+				vec,
+				"rv",
+				"rvKey",
+				"A vector backed regex flag",
+				func(s string, v *data.Vector, rs ...*regexp.Regexp) error {
+					for _, r := range rs {
+						if !r.MatchString(s) {
+							return fmt.Errorf("regex flag '%s | %s': No match, where expected match", rgxTestExp, s)
+						}
+					}
+					return nil
+				},
+				rgxTestExp,
+			},
+			rgxTestExp,
+			[][]string{{"-rv", "adam[23]"}, {"-rv", "eve[7]"}},
+			[]string{"-rv string", "A vector backed regex flag"},
+			false,
+		},
+		{ //error catchers only process one fexp.prs at a time
 			"Float64", "f64",
 			[]interface{}{"f64", float64(0.0), "Catching float64 flag errors"},
 			float64(500.0),

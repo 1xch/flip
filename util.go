@@ -10,6 +10,19 @@ import (
 	"unsafe"
 )
 
+func failOnly(f *FlagSet, format string, a ...interface{}) error {
+	err := fmt.Errorf(format, a...)
+	fmt.Fprintln(f.Out(), err)
+	return err
+}
+
+func failFmt(f *FlagSet, format string, a ...interface{}) error {
+	err := fmt.Errorf(format, a...)
+	fmt.Fprintln(f.Out(), err)
+	f.Usage(f.Out())
+	return err
+}
+
 type color struct {
 	params []Attribute
 }
@@ -150,3 +163,37 @@ var (
 	cyan    = Color(FgHiCyan)
 	white   = Color(FgHiWhite)
 )
+
+//paramBool
+
+//paramString
+
+//func paramInt(r *regexp.Regexp, s, k string) int {
+//	match := r.FindStringSubmatch(s)
+//	for i, name := range r.SubexpNames() {
+//		if i > 0 && i <= len(match) {
+//			if k == name {
+//				v, err := strconv.Atoi(match[i])
+//				if err == nil {
+//					return v
+//				}
+//			}
+//		}
+//	}
+//	return 0
+//}
+
+//func paramFloat64(r *regexp.Regexp, s, k string) float64 {
+//	match := r.FindStringSubmatch(s)
+//	for i, name := range r.SubexpNames() {
+//		if i > 0 && i <= len(match) {
+//			if k == name {
+//				v, err := strconv.ParseFloat(match[i], 64)
+//				if err == nil {
+//					return v
+//				}
+//			}
+//		}
+//	}
+//	return 0.0
+//}

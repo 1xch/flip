@@ -54,6 +54,7 @@ func cmdSet(tf *tflags, b *bytes.Buffer) [][]Command {
 			},
 			testFlagSet("one-B", tf, b),
 		),
+		// nil cmdFunc command
 	}
 
 	tg2 := []Command{
@@ -257,9 +258,9 @@ func TestFlip(t *testing.T) {
 		sets := cmdSet(fs, to)
 		f := New("test")
 		f.SetOut(to)
-		f.AddCommand("help").
-			AddCommand("version", "test package", "test tag", "test hash", "test date").
-			AddCommand("NoExistingCommand").
+		f.AddBuiltIn("help").
+			AddBuiltIn("version", "test package", "test tag", "test hash", "test date").
+			AddBuiltIn("NoExistingCommand").
 			SetGroup("one", 1, sets[0]...).
 			SetGroup("two", 2, sets[1]...).
 			SetGroup("", -1, sets[2]...)
