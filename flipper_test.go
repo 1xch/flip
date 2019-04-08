@@ -54,7 +54,7 @@ func cmdSet(tf *tflags, b *bytes.Buffer) [][]Command {
 			},
 			testFlagSet("one-B", tf, b),
 		),
-		// nil cmdFunc command
+		// TODO: nil cmdFunc command
 	}
 
 	tg2 := []Command{
@@ -132,7 +132,7 @@ var flipExpect = []struct {
 	{
 		-2,
 		func(t *testing.T, fs *tflags) {
-			//flagError(t, "top", fs.t1, true)
+			//TODO: flagError(t, "top", fs.t1, true)
 		},
 		[]string{"flag provided but not defined: -nonflag"},
 		nil,

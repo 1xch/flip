@@ -29,7 +29,7 @@ var vec *data.Vector
 var rgxTestExp = "^[a-z]+\\[[0-9]+\\]$"
 
 func init() {
-	vec = data.New("test_vector")
+	vec = data.New("test_contain")
 
 	flagExpect = []fexp{
 		{
@@ -41,11 +41,11 @@ func init() {
 			false,
 		},
 		{
-			"BoolVector", "bv",
-			[]interface{}{vec, "bv", "bvKey", "A vector backed boolean flag"},
+			"BoolContain", "bv",
+			[]interface{}{vec, "bv", "bvKey", "A contain backed boolean flag"},
 			true,
 			[][]string{{"-bv"}, {"--bv"}},
-			[]string{"-bv", "A vector backed boolean flag"},
+			[]string{"-bv", "A contain backed boolean flag"},
 			false,
 		},
 		{
@@ -57,11 +57,11 @@ func init() {
 			false,
 		},
 		{
-			"IntVector", "iv",
-			[]interface{}{vec, "iv", "ivKey", "A vector backed integer flag"},
+			"IntContain", "iv",
+			[]interface{}{vec, "iv", "ivKey", "A contain backed integer flag"},
 			500,
 			[][]string{{"-iv", "500"}},
-			[]string{"-iv int", "A vector backed integer flag"},
+			[]string{"-iv int", "A contain backed integer flag"},
 			false,
 		},
 		{
@@ -73,11 +73,11 @@ func init() {
 			false,
 		},
 		{
-			"Int64Vector", "iv64",
-			[]interface{}{vec, "iv64", "iv64Key", "A vector backed int64 flag"},
+			"Int64Contain", "iv64",
+			[]interface{}{vec, "iv64", "iv64Key", "A contain backed int64 flag"},
 			int64(500),
 			[][]string{{"-iv64", "500"}},
-			[]string{"-iv64 int", "A vector backed int64 flag"},
+			[]string{"-iv64 int", "A contain backed int64 flag"},
 			false,
 		},
 		{
@@ -89,11 +89,11 @@ func init() {
 			false,
 		},
 		{
-			"UintVector", "uv",
-			[]interface{}{vec, "uv", "uvKey", "A vector backed uint flag"},
+			"UintContain", "uv",
+			[]interface{}{vec, "uv", "uvKey", "A contain backed uint flag"},
 			uint(500),
 			[][]string{{"-uv", "500"}},
-			[]string{"-uv uint", "A vector backed uint flag"},
+			[]string{"-uv uint", "A contain backed uint flag"},
 			false,
 		},
 		{
@@ -105,11 +105,11 @@ func init() {
 			false,
 		},
 		{
-			"Uint64Vector", "u64v",
-			[]interface{}{vec, "u64v", "u64vKey", "A vector backed uint64 flag"},
+			"Uint64Contain", "u64v",
+			[]interface{}{vec, "u64v", "u64vKey", "A contain backed uint64 flag"},
 			uint64(500),
 			[][]string{{"-u64v", "500"}},
-			[]string{"-u64v uint", "A vector backed uint64 flag"},
+			[]string{"-u64v uint", "A contain backed uint64 flag"},
 			false,
 		},
 		{
@@ -121,11 +121,11 @@ func init() {
 			false,
 		},
 		{
-			"StringVector", "sv",
-			[]interface{}{vec, "sv", "svKey", "A vector backed string flag"},
+			"StringContain", "sv",
+			[]interface{}{vec, "sv", "svKey", "A contain backed string flag"},
 			"hello",
 			[][]string{{"-sv", "hello"}},
-			[]string{"-sv string", "A vector backed string flag"},
+			[]string{"-sv string", "A contain backed string flag"},
 			false,
 		},
 		{
@@ -137,11 +137,11 @@ func init() {
 			false,
 		},
 		{
-			"Float64Vector", "f64v",
-			[]interface{}{vec, "f64v", "f64vKey", "A vector `(not a typo) backed float64 flag"},
+			"Float64Contain", "f64v",
+			[]interface{}{vec, "f64v", "f64vKey", "A contain `(not a typo) backed float64 flag"},
 			float64(500.0),
 			[][]string{{"-f64v", "500.0"}, {"-f64v", "500"}},
-			[]string{"-f64v float", "A vector `(not a typo) backed float64 flag"},
+			[]string{"-f64v float", "A contain `(not a typo) backed float64 flag"},
 			false,
 		},
 		{
@@ -153,11 +153,11 @@ func init() {
 			false,
 		},
 		{
-			"DurationVector", "dv",
-			[]interface{}{vec, "dv", "dvKey", "A vector backed duration flag"},
+			"DurationContain", "dv",
+			[]interface{}{vec, "dv", "dvKey", "A contain backed duration flag"},
 			time.Second * 500,
 			[][]string{{"-dv", "500s"}},
-			[]string{"-dv duration", "A vector backed duration flag"},
+			[]string{"-dv duration", "A contain backed duration flag"},
 			false,
 		},
 		{
@@ -181,13 +181,13 @@ func init() {
 			false,
 		},
 		{
-			"RegexVectorVar", "rv",
+			"RegexContainVar", "rv",
 			[]interface{}{
 				vec,
 				"rv",
 				"rvKey",
-				"A vector backed regex flag",
-				func(s string, v *data.Vector, rs ...*regexp.Regexp) error {
+				"A contain backed regex flag",
+				func(s string, v StringContain, rs ...*regexp.Regexp) error {
 					for _, r := range rs {
 						if !r.MatchString(s) {
 							return fmt.Errorf("regex flag '%s | %s': No match, where expected match", rgxTestExp, s)
@@ -199,7 +199,7 @@ func init() {
 			},
 			rgxTestExp,
 			[][]string{{"-rv", "adam[23]"}, {"-rv", "eve[7]"}},
-			[]string{"-rv string", "A vector backed regex flag"},
+			[]string{"-rv string", "A contain backed regex flag"},
 			false,
 		},
 		{ //error catchers only process one fexp.prs at a time

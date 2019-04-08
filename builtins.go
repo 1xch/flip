@@ -9,16 +9,16 @@ import (
 
 // An interface that handles adding(package builtin commands) by string parameters.
 type Adder interface {
-	AddBuiltIn(string, ...string) Flpr
+	AddBuiltIn(string, ...string) Flipper
 }
 
 type help struct {
-	f        Flpr
+	f        Flipper
 	full     bool
 	commands string
 }
 
-func newHelp(f Flpr) *help {
+func newHelp(f Flipper) *help {
 	return &help{f, true, ""}
 }
 
@@ -65,7 +65,7 @@ func (h *help) command() Command {
 	)
 }
 
-func (f *Flp) addHelp() Flpr {
+func (f *Flip) addHelp() Flipper {
 	h := newHelp(f)
 	f.SetGroup("help", 1000, h.command())
 	return f
@@ -77,12 +77,12 @@ func (h *help) reset() {
 }
 
 type version struct {
-	f                                                  Flpr
+	f                                                  Flipper
 	vpackage, tag, hash, date                          string
 	printPackage, printTag, printHash, printDate, full bool
 }
 
-func newVersion(f Flpr, pkg, tag, hash, date string) *version {
+func newVersion(f Flipper, pkg, tag, hash, date string) *version {
 	return &version{
 		f, pkg, tag, hash, date, false, false, false, false, true,
 	}
@@ -112,6 +112,7 @@ func (v *version) String() string {
 		b.WriteString(v.fullString())
 	}
 	v.reset()
+	b.WriteString("\n")
 	return b.String()
 }
 
@@ -156,7 +157,7 @@ func (v *version) command() Command {
 	)
 }
 
-func (f *Flp) addVersion(args ...string) Flpr {
+func (f *Flip) addVersion(args ...string) Flipper {
 	p, t, h, d := "not provided", "not provided", "not provided", "not provided"
 	in := len(args) - 1
 	for i := -1; i <= 3; i++ {

@@ -9,8 +9,8 @@ import (
 	"sort"
 )
 
-// Flpr is the flag line processor interface
-type Flpr interface {
+// Flipper is the flag line processor interface.
+type Flipper interface {
 	Adder
 	Commander
 	Instructer
@@ -18,8 +18,8 @@ type Flpr interface {
 	Cleaner
 }
 
-// A flag line processor implementing Flpr
-type Flp struct {
+// A struct as the package default flag line processor, implementing Flipper.
+type Flip struct {
 	Commander
 	Instructer
 	Executer
@@ -27,23 +27,27 @@ type Flp struct {
 }
 
 // Return a new package default Flip corresponding to the provided string name.
-func New(name string) *Flp {
-	return NewFlp(
-		func(f *Flp) { f.Cleaner = newCleaner() },
-		func(f *Flp) { f.Commander = newCommander(f) },
-		func(f *Flp) { f.Instructer = newInstructer(name, f.Commander, os.Stdout) },
-		func(f *Flp) { f.Executer = newExecuter(f.Commander, f.RunCleanup) },
-		func(f *Flp) { f.SetCleanup(ExitUsageError, f.Instruction) },
-		func(f *Flp) { f.SetGroup("", 0) },
+func New(name string) *Flip {
+	return NewFlip(
+		func(f *Flip) { f.Cleaner = newCleaner() },
+		func(f *Flip) { f.Commander = newCommander(f) },
+		func(f *Flip) { f.Instructer = newInstructer(name, f.Commander, os.Stdout) },
+		func(f *Flip) { f.Executer = newExecuter(f.Commander, f.RunCleanup) },
+		func(f *Flip) {
+			var ifn Cleanup
+			ifn = f.Instruction
+			f.SetCleanup(ExitUsageError, ifn)
+		},
+		func(f *Flip) { f.SetGroup("", 0) },
 	)
 }
 
 //
-type FlpConfig func(*Flp)
+type FlipConfig func(*Flip)
 
 //
-func NewFlp(fns ...FlpConfig) *Flp {
-	f := &Flp{}
+func NewFlip(fns ...FlipConfig) *Flip {
+	f := &Flip{}
 	for _, fn := range fns {
 		fn(f)
 	}
@@ -54,7 +58,7 @@ func NewFlp(fns ...FlpConfig) *Flp {
 // Currently, commands added by this method are:
 // - help (takes no other arguments)
 // - version (followed by package, tag, version, and hash information strings, in that order)
-func (f *Flp) AddBuiltIn(nc string, args ...string) Flpr {
+func (f *Flip) AddBuiltIn(nc string, args ...string) Flipper {
 	switch nc {
 	case "help":
 		return f.addHelp()
@@ -68,22 +72,22 @@ func (f *Flp) AddBuiltIn(nc string, args ...string) Flpr {
 type Grouper interface {
 	Groups() *Groups
 	GetGroup(string) *Group
-	SetGroup(string, int, ...Command) Flpr
+	SetGroup(string, int, ...Command) Flipper
 }
 
 // An interface for grouping nad managing commands for a Flip instance.
 type Commander interface {
 	Grouper
 	GetCommand(...string) []Command
-	SetCommand(...Command) Flpr
+	SetCommand(...Command) Flipper
 }
 
 type commander struct {
-	f      Flpr
+	f      Flipper
 	groups *Groups
 }
 
-func newCommander(f Flpr) *commander {
+func newCommander(f Flipper) *commander {
 	return &commander{f, newGroups()}
 }
 
@@ -103,7 +107,7 @@ func (c *commander) GetGroup(name string) *Group {
 }
 
 // Set a group with the string name and integer priority, containing the given commands.
-func (c *commander) SetGroup(name string, priority int, cmds ...Command) Flpr {
+func (c *commander) SetGroup(name string, priority int, cmds ...Command) Flipper {
 	c.groups.Has = append(c.groups.Has, NewGroup(name, priority))
 	for _, v := range cmds {
 		v.SetGroup(name)
@@ -129,11 +133,12 @@ func (c *commander) GetCommand(ks ...string) []Command {
 			}
 		}
 	}
+	//remove dupes
 	return ret
 }
 
 // Set the provided Commands, returning a Flip instance (useful for chaining).
-func (c *commander) SetCommand(cmds ...Command) Flpr {
+func (c *commander) SetCommand(cmds ...Command) Flipper {
 	for _, cmd := range cmds {
 		g := c.GetGroup(cmd.Group())
 		g.Commands = append(g.Commands, cmd)
@@ -230,6 +235,7 @@ func (c *command) Execute(ctx context.Context, v []string) (context.Context, Exi
 	return ctx, ExitFailure
 }
 
+//
 type Groups struct {
 	SortBy string
 	Has    []*Group
@@ -254,6 +260,7 @@ func (g Groups) Less(i, j int) bool {
 // groups Swap function for sort.Sort
 func (g Groups) Swap(i, j int) { g.Has[i], g.Has[j] = g.Has[j], g.Has[i] }
 
+//
 type Group struct {
 	Name     string
 	Priority int
@@ -303,9 +310,18 @@ func (g *Group) Use(o io.Writer) {
 
 // An interface for providing instruction i.e. writes usage strings.
 type Instructer interface {
+	SwapInstructer(Instructer)
 	Instruction(context.Context)
 	SubsetInstruction(c ...Command) func(context.Context)
 	Writer
+}
+
+type iswapper struct {
+	Instructer
+}
+
+func (s *iswapper) SwapInstructer(i Instructer) {
+	s.Instructer = i
 }
 
 type instructer struct {
@@ -314,11 +330,13 @@ type instructer struct {
 	ifn            Cleanup
 }
 
-func newInstructer(tag string, cm Commander, o io.Writer) *instructer {
+func newInstructer(tag string, cm Commander, o io.Writer) *iswapper {
 	i := &instructer{"%s [OPTIONS...] {COMMAND} ...\n\n", o, nil}
 	i.ifn = defaultInstruction(tag, cm, i)
-	return i
+	return &iswapper{i}
 }
+
+func (i *instructer) SwapInstructer(Instructer) {}
 
 // Given a context.Context writes the what the Instructer is configured to write.
 func (i *instructer) Instruction(c context.Context) {

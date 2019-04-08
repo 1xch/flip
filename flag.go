@@ -9,8 +9,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/Laughs-In-Flowers/data"
 )
 
 // A type representing one command line flag
@@ -31,33 +29,32 @@ type Value interface {
 type (
 	setFn func(string) error
 	getFn func() interface{}
-	//rgxToVector func(string, *regexp.Regexp, data.Vector) error
 )
 
-type vectorValue struct {
+type containValue struct {
 	to   string
 	sfn  setFn
 	gfn  getFn
 	kind string
 }
 
-// Value interface Set function for internal type vectorValue
-func (v *vectorValue) Set(n string) error {
+// Value interface Set function for internal type containValue
+func (v *containValue) Set(n string) error {
 	return v.sfn(n)
 }
 
-// Value interface Get function for internal type vectorValue
-func (v *vectorValue) Get() interface{} {
+// Value interface Get function for internal type containValue
+func (v *containValue) Get() interface{} {
 	return v.gfn()
 }
 
-// Value interface String function for internal type vectorValue
-func (v *vectorValue) String() string {
+// Value interface String function for internal type containValue
+func (v *containValue) String() string {
 	return fmt.Sprintf("%v", v.Get())
 }
 
-// internal boolFlag interface IsBoolFlag function for internal type vectorValue
-func (v *vectorValue) IsBoolFlag() bool {
+// internal boolFlag interface IsBoolFlag function for internal type containValue
+func (v *containValue) IsBoolFlag() bool {
 	if v.kind == "bool" {
 		return true
 	}
@@ -92,9 +89,15 @@ type boolFlag interface {
 	IsBoolFlag() bool
 }
 
-func boolVectorValue(key string, value bool, v *data.Vector) *vectorValue {
+//
+type BoolContain interface {
+	SetBool(string, bool)
+	ToBool(string) bool
+}
+
+func boolContainValue(key string, value bool, v BoolContain) *containValue {
 	v.SetBool(key, value)
-	return &vectorValue{
+	return &containValue{
 		key,
 		func(n string) error {
 			s, err := strconv.ParseBool(n)
@@ -128,9 +131,15 @@ func (i *intValue) Get() interface{} { return int(*i) }
 // Value interface String function for internal type intValue
 func (i *intValue) String() string { return fmt.Sprintf("%v", *i) }
 
-func intVectorValue(key string, value int, v *data.Vector) *vectorValue {
+//
+type IntContain interface {
+	SetInt(string, int)
+	ToInt(string) int
+}
+
+func intContainValue(key string, value int, v IntContain) *containValue {
 	v.SetInt(key, value)
-	return &vectorValue{
+	return &containValue{
 		key,
 		func(n string) error {
 			s, err := strconv.ParseInt(n, 0, 64)
@@ -165,9 +174,15 @@ func (i *int64Value) Get() interface{} { return int64(*i) }
 // Value interface String function for internal type intValue
 func (i *int64Value) String() string { return fmt.Sprintf("%v", *i) }
 
-func int64VectorValue(key string, value int64, v *data.Vector) *vectorValue {
+//
+type Int64Contain interface {
+	SetInt64(string, int64)
+	ToInt64(string) int64
+}
+
+func int64ContainValue(key string, value int64, v Int64Contain) *containValue {
 	v.SetInt64(key, value)
-	return &vectorValue{
+	return &containValue{
 		key,
 		func(n string) error {
 			s, err := strconv.ParseInt(n, 0, 64)
@@ -201,9 +216,15 @@ func (i *uintValue) Get() interface{} { return uint(*i) }
 // Value interface String function for internal type intValue
 func (i *uintValue) String() string { return fmt.Sprintf("%v", *i) }
 
-func uintVectorValue(key string, value uint, v *data.Vector) *vectorValue {
+//
+type UintContain interface {
+	SetUint(string, uint)
+	ToUint(string) uint
+}
+
+func uintContainValue(key string, value uint, v UintContain) *containValue {
 	v.SetUint(key, value)
-	return &vectorValue{
+	return &containValue{
 		key,
 		func(n string) error {
 			s, err := strconv.ParseUint(n, 0, 64)
@@ -237,9 +258,15 @@ func (i *uint64Value) Get() interface{} { return uint64(*i) }
 // Value interface String function for internal type intValue
 func (i *uint64Value) String() string { return fmt.Sprintf("%v", *i) }
 
-func uint64VectorValue(key string, value uint64, v *data.Vector) *vectorValue {
+//
+type Uint64Contain interface {
+	SetUint64(string, uint64)
+	ToUint64(string) uint64
+}
+
+func uint64ContainValue(key string, value uint64, v Uint64Contain) *containValue {
 	v.SetUint64(key, value)
-	return &vectorValue{
+	return &containValue{
 		key,
 		func(n string) error {
 			s, err := strconv.ParseUint(n, 0, 64)
@@ -272,9 +299,14 @@ func (s *stringValue) Get() interface{} { return string(*s) }
 // Value interface String function for internal type stringValue
 func (s *stringValue) String() string { return fmt.Sprintf("%s", *s) }
 
-func stringVectorValue(key, value string, v *data.Vector) *vectorValue {
+type StringContain interface {
+	SetString(string, string)
+	ToString(string) string
+}
+
+func stringContainValue(key, value string, v StringContain) *containValue {
 	v.SetString(key, value)
-	return &vectorValue{
+	return &containValue{
 		key,
 		func(n string) error {
 			v.SetString(key, n)
@@ -307,9 +339,14 @@ func (f *float64Value) Get() interface{} { return float64(*f) }
 // Value interface String function for internal type float64Value
 func (f *float64Value) String() string { return fmt.Sprintf("%v", *f) }
 
-func float64VectorValue(key string, value float64, v *data.Vector) *vectorValue {
+type Float64Contain interface {
+	SetFloat64(string, float64)
+	ToFloat64(string) float64
+}
+
+func float64ContainValue(key string, value float64, v Float64Contain) *containValue {
 	v.SetFloat64(key, value)
-	return &vectorValue{
+	return &containValue{
 		key,
 		func(n string) error {
 			s, err := strconv.ParseFloat(n, 64)
@@ -343,9 +380,9 @@ func (d *durationValue) Get() interface{} { return time.Duration(*d) }
 // Value interface String function for internal type durationValue
 func (d *durationValue) String() string { return (*time.Duration)(d).String() }
 
-func durationVectorValue(key, value string, v *data.Vector) *vectorValue {
+func durationContainValue(key, value string, v StringContain) *containValue {
 	v.SetString(key, value)
-	return &vectorValue{
+	return &containValue{
 		key,
 		func(n string) error {
 			v.SetString(key, n)
@@ -363,6 +400,7 @@ func durationVectorValue(key, value string, v *data.Vector) *vectorValue {
 	}
 }
 
+//
 type RgxBridgeFunc func(string, ...*regexp.Regexp) error
 
 type regexValue struct {
@@ -379,25 +417,29 @@ func newRegexValue(xfn RgxBridgeFunc, raw ...string) *regexValue {
 	return &regexValue{strings.Join(raw, ","), rgx, xfn}
 }
 
+//
 func (r *regexValue) Set(s string) error {
 	return r.xfn(s, r.rgx...)
 }
 
+//
 func (r *regexValue) Get() interface{} {
 	return r.raw
 }
 
+//
 func (r *regexValue) String() string { return r.raw }
 
-type RgxVectorBridgeFunc func(string, *data.Vector, ...*regexp.Regexp) error
+//
+type RgxContainBridgeFunc func(string, StringContain, ...*regexp.Regexp) error
 
-func regexVectorValue(key string, xfn RgxVectorBridgeFunc, v *data.Vector, raw ...string) *vectorValue {
+func regexContainValue(key string, xfn RgxContainBridgeFunc, v StringContain, raw ...string) *containValue {
 	v.SetString(key, strings.Join(raw, ","))
 	var rgx []*regexp.Regexp
 	for _, r := range raw {
 		rgx = append(rgx, regexp.MustCompile(r))
 	}
-	return &vectorValue{
+	return &containValue{
 		key,
 		func(n string) error {
 			return xfn(n, v, rgx...)
@@ -672,13 +714,13 @@ func (f *FlagSet) Bool(name string, value bool, usage string) *bool {
 }
 
 //
-func (f *FlagSet) BoolVectorVar(d *data.Vector, name, key string, value bool, usage string) {
-	f.Var(boolVectorValue(key, value, d), name, usage)
+func (f *FlagSet) BoolContainVar(d BoolContain, name, key string, value bool, usage string) {
+	f.Var(boolContainValue(key, value, d), name, usage)
 }
 
 //
-func (f *FlagSet) BoolVector(d *data.Vector, name, key, usage string) *data.Vector {
-	f.BoolVectorVar(d, name, key, false, usage)
+func (f *FlagSet) BoolContain(d BoolContain, name, key, usage string) BoolContain {
+	f.BoolContainVar(d, name, key, false, usage)
 	return d
 }
 
@@ -695,13 +737,13 @@ func (f *FlagSet) Int(name string, value int, usage string) *int {
 }
 
 //
-func (f *FlagSet) IntVectorVar(d *data.Vector, name, key string, value int, usage string) {
-	f.Var(intVectorValue(key, value, d), name, usage)
+func (f *FlagSet) IntContainVar(d IntContain, name, key string, value int, usage string) {
+	f.Var(intContainValue(key, value, d), name, usage)
 }
 
 //
-func (f *FlagSet) IntVector(d *data.Vector, name, key, usage string) *data.Vector {
-	f.IntVectorVar(d, name, key, 0, usage)
+func (f *FlagSet) IntContain(d IntContain, name, key, usage string) IntContain {
+	f.IntContainVar(d, name, key, 0, usage)
 	return d
 }
 
@@ -718,13 +760,13 @@ func (f *FlagSet) Int64(name string, value int64, usage string) *int64 {
 }
 
 //
-func (f *FlagSet) Int64VectorVar(d *data.Vector, name, key string, value int64, usage string) {
-	f.Var(int64VectorValue(key, value, d), name, usage)
+func (f *FlagSet) Int64ContainVar(d Int64Contain, name, key string, value int64, usage string) {
+	f.Var(int64ContainValue(key, value, d), name, usage)
 }
 
 //
-func (f *FlagSet) Int64Vector(d *data.Vector, name, key, usage string) *data.Vector {
-	f.Int64VectorVar(d, name, key, 0, usage)
+func (f *FlagSet) Int64Contain(d Int64Contain, name, key, usage string) Int64Contain {
+	f.Int64ContainVar(d, name, key, 0, usage)
 	return d
 }
 
@@ -741,13 +783,13 @@ func (f *FlagSet) Uint(name string, value uint, usage string) *uint {
 }
 
 //
-func (f *FlagSet) UintVectorVar(d *data.Vector, name, key string, value uint, usage string) {
-	f.Var(uintVectorValue(key, value, d), name, usage)
+func (f *FlagSet) UintContainVar(d UintContain, name, key string, value uint, usage string) {
+	f.Var(uintContainValue(key, value, d), name, usage)
 }
 
 //
-func (f *FlagSet) UintVector(d *data.Vector, name, key, usage string) *data.Vector {
-	f.UintVectorVar(d, name, key, 0, usage)
+func (f *FlagSet) UintContain(d UintContain, name, key, usage string) UintContain {
+	f.UintContainVar(d, name, key, 0, usage)
 	return d
 }
 
@@ -764,13 +806,13 @@ func (f *FlagSet) Uint64(name string, value uint64, usage string) *uint64 {
 }
 
 //
-func (f *FlagSet) Uint64VectorVar(d *data.Vector, name, key string, value uint64, usage string) {
-	f.Var(uint64VectorValue(key, value, d), name, usage)
+func (f *FlagSet) Uint64ContainVar(d Uint64Contain, name, key string, value uint64, usage string) {
+	f.Var(uint64ContainValue(key, value, d), name, usage)
 }
 
 //
-func (f *FlagSet) Uint64Vector(d *data.Vector, name, key, usage string) *data.Vector {
-	f.Uint64VectorVar(d, name, key, 0, usage)
+func (f *FlagSet) Uint64Contain(d Uint64Contain, name, key, usage string) Uint64Contain {
+	f.Uint64ContainVar(d, name, key, 0, usage)
 	return d
 }
 
@@ -787,13 +829,13 @@ func (f *FlagSet) String(name string, value string, usage string) *string {
 }
 
 //
-func (f *FlagSet) StringVectorVar(d *data.Vector, name, key, value, usage string) {
-	f.Var(stringVectorValue(key, value, d), name, usage)
+func (f *FlagSet) StringContainVar(d StringContain, name, key, value, usage string) {
+	f.Var(stringContainValue(key, value, d), name, usage)
 }
 
 //
-func (f *FlagSet) StringVector(d *data.Vector, name, key, usage string) *data.Vector {
-	f.StringVectorVar(d, name, key, "", usage)
+func (f *FlagSet) StringContain(d StringContain, name, key, usage string) StringContain {
+	f.StringContainVar(d, name, key, "", usage)
 	return d
 }
 
@@ -810,13 +852,13 @@ func (f *FlagSet) Float64(name string, value float64, usage string) *float64 {
 }
 
 //
-func (f *FlagSet) Float64VectorVar(d *data.Vector, name, key string, value float64, usage string) {
-	f.Var(float64VectorValue(key, value, d), name, usage)
+func (f *FlagSet) Float64ContainVar(d Float64Contain, name, key string, value float64, usage string) {
+	f.Var(float64ContainValue(key, value, d), name, usage)
 }
 
 //
-func (f *FlagSet) Float64Vector(d *data.Vector, name, key, usage string) *data.Vector {
-	f.Float64VectorVar(d, name, key, 0, usage)
+func (f *FlagSet) Float64Contain(d Float64Contain, name, key, usage string) Float64Contain {
+	f.Float64ContainVar(d, name, key, 0, usage)
 	return d
 }
 
@@ -833,13 +875,13 @@ func (f *FlagSet) Duration(name string, value time.Duration, usage string) *time
 }
 
 //
-func (f *FlagSet) DurationVectorVar(d *data.Vector, name, key, value, usage string) {
-	f.Var(durationVectorValue(key, value, d), name, usage)
+func (f *FlagSet) DurationContainVar(d StringContain, name, key, value, usage string) {
+	f.Var(durationContainValue(key, value, d), name, usage)
 }
 
 //
-func (f *FlagSet) DurationVector(d *data.Vector, name, key, usage string) *data.Vector {
-	f.DurationVectorVar(d, name, key, "0s", usage)
+func (f *FlagSet) DurationContain(d StringContain, name, key, usage string) StringContain {
+	f.DurationContainVar(d, name, key, "0s", usage)
 	return d
 }
 
@@ -848,9 +890,9 @@ func (f *FlagSet) RegexVar(name, usage string, xfn RgxBridgeFunc, rawRegexps ...
 	f.Var(newRegexValue(xfn, rawRegexps...), name, usage)
 }
 
-// A vector backed flag processing a regular expression
-func (f *FlagSet) RegexVectorVar(d *data.Vector, name, key, usage string, xfn RgxVectorBridgeFunc, rawRegexps ...string) *data.Vector {
-	f.Var(regexVectorValue(key, xfn, d, rawRegexps...), name, usage)
+// A contain backed flag processing a regular expression
+func (f *FlagSet) RegexContainVar(d StringContain, name, key, usage string, xfn RgxContainBridgeFunc, rawRegexps ...string) StringContain {
+	f.Var(regexContainValue(key, xfn, d, rawRegexps...), name, usage)
 	return d
 }
 
@@ -945,8 +987,8 @@ func UnquoteMessage(flag *Flag) (name string, usage string) {
 		name = "string"
 	case *uintValue, *uint64Value:
 		name = "uint"
-	case *vectorValue:
-		vv := flag.Value.(*vectorValue)
+	case *containValue:
+		vv := flag.Value.(*containValue)
 		switch vv.kind {
 		case "bool":
 			name = ""
