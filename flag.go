@@ -133,21 +133,21 @@ func (i *intValue) String() string { return fmt.Sprintf("%v", *i) }
 
 //
 type IntContain interface {
-	SetInt(string, int)
-	ToInt(string) int
+	SetInt64(string, int64)
+	ToInt64(string) int64
 }
 
-func intContainValue(key string, value int, v IntContain) *containValue {
-	v.SetInt(key, value)
+func intContainValue(key string, value int64, v IntContain) *containValue {
+	v.SetInt64(key, value)
 	return &containValue{
 		key,
 		func(n string) error {
 			s, err := strconv.ParseInt(n, 0, 64)
-			v.SetInt(key, int(s))
+			v.SetInt64(key, s)
 			return err
 		},
 		func() interface{} {
-			return v.ToInt(key)
+			return int(v.ToInt64(key))
 		},
 		"int",
 	}
@@ -297,7 +297,7 @@ func (s *stringValue) Set(val string) error {
 func (s *stringValue) Get() interface{} { return string(*s) }
 
 // Value interface String function for internal type stringValue
-func (s *stringValue) String() string { return fmt.Sprintf("%s", *s) }
+func (s *stringValue) String() string { return string(*s) }
 
 type StringContain interface {
 	SetString(string, string)
@@ -737,7 +737,7 @@ func (f *FlagSet) Int(name string, value int, usage string) *int {
 }
 
 //
-func (f *FlagSet) IntContainVar(d IntContain, name, key string, value int, usage string) {
+func (f *FlagSet) IntContainVar(d IntContain, name, key string, value int64, usage string) {
 	f.Var(intContainValue(key, value, d), name, usage)
 }
 

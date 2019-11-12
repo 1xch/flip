@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Laughs-In-Flowers/data"
+	"github.com/1xch/lal"
 )
 
 var flagExpect []fexp
@@ -24,12 +24,12 @@ type fexp struct {
 	catch bool
 }
 
-var vec *data.Vector
+var itm *lal.Item
 
 var rgxTestExp = "^[a-z]+\\[[0-9]+\\]$"
 
 func init() {
-	vec = data.New("test_contain")
+	_, itm = lal.NewItem("test_contain")
 
 	flagExpect = []fexp{
 		{
@@ -42,7 +42,7 @@ func init() {
 		},
 		{
 			"BoolContain", "bv",
-			[]interface{}{vec, "bv", "bvKey", "A contain backed boolean flag"},
+			[]interface{}{itm, "bv", "bvKey", "A contain backed boolean flag"},
 			true,
 			[][]string{{"-bv"}, {"--bv"}},
 			[]string{"-bv", "A contain backed boolean flag"},
@@ -58,7 +58,7 @@ func init() {
 		},
 		{
 			"IntContain", "iv",
-			[]interface{}{vec, "iv", "ivKey", "A contain backed integer flag"},
+			[]interface{}{itm, "iv", "ivKey", "A contain backed integer flag"},
 			500,
 			[][]string{{"-iv", "500"}},
 			[]string{"-iv int", "A contain backed integer flag"},
@@ -74,7 +74,7 @@ func init() {
 		},
 		{
 			"Int64Contain", "iv64",
-			[]interface{}{vec, "iv64", "iv64Key", "A contain backed int64 flag"},
+			[]interface{}{itm, "iv64", "iv64Key", "A contain backed int64 flag"},
 			int64(500),
 			[][]string{{"-iv64", "500"}},
 			[]string{"-iv64 int", "A contain backed int64 flag"},
@@ -88,14 +88,14 @@ func init() {
 			[]string{"-u uint", "A uint flag"},
 			false,
 		},
-		{
-			"UintContain", "uv",
-			[]interface{}{vec, "uv", "uvKey", "A contain backed uint flag"},
-			uint(500),
-			[][]string{{"-uv", "500"}},
-			[]string{"-uv uint", "A contain backed uint flag"},
-			false,
-		},
+		//{
+		//	"UintContain", "uv",
+		//	[]interface{}{itm, "uv", "uvKey", "A contain backed uint flag"},
+		//	uint(500),
+		//	[][]string{{"-uv", "500"}},
+		//	[]string{"-uv uint", "A contain backed uint flag"},
+		//	false,
+		//},
 		{
 			"Uint64", "u64",
 			[]interface{}{"u64", uint64(0), "A uint64 flag"},
@@ -104,14 +104,14 @@ func init() {
 			[]string{"-u64 uint", "A uint64 flag"},
 			false,
 		},
-		{
-			"Uint64Contain", "u64v",
-			[]interface{}{vec, "u64v", "u64vKey", "A contain backed uint64 flag"},
-			uint64(500),
-			[][]string{{"-u64v", "500"}},
-			[]string{"-u64v uint", "A contain backed uint64 flag"},
-			false,
-		},
+		//{
+		//	"Uint64Contain", "u64v",
+		//	[]interface{}{itm, "u64v", "u64vKey", "A contain backed uint64 flag"},
+		//	uint64(500),
+		//	[][]string{{"-u64v", "500"}},
+		//	[]string{"-u64v uint", "A contain backed uint64 flag"},
+		//	false,
+		//},
 		{
 			"String", "s",
 			[]interface{}{"s", string(""), "A string flag"},
@@ -122,7 +122,7 @@ func init() {
 		},
 		{
 			"StringContain", "sv",
-			[]interface{}{vec, "sv", "svKey", "A contain backed string flag"},
+			[]interface{}{itm, "sv", "svKey", "A contain backed string flag"},
 			"hello",
 			[][]string{{"-sv", "hello"}},
 			[]string{"-sv string", "A contain backed string flag"},
@@ -138,7 +138,7 @@ func init() {
 		},
 		{
 			"Float64Contain", "f64v",
-			[]interface{}{vec, "f64v", "f64vKey", "A contain `(not a typo) backed float64 flag"},
+			[]interface{}{itm, "f64v", "f64vKey", "A contain `(not a typo) backed float64 flag"},
 			float64(500.0),
 			[][]string{{"-f64v", "500.0"}, {"-f64v", "500"}},
 			[]string{"-f64v float", "A contain `(not a typo) backed float64 flag"},
@@ -154,7 +154,7 @@ func init() {
 		},
 		{
 			"DurationContain", "dv",
-			[]interface{}{vec, "dv", "dvKey", "A contain backed duration flag"},
+			[]interface{}{itm, "dv", "dvKey", "A contain backed duration flag"},
 			time.Second * 500,
 			[][]string{{"-dv", "500s"}},
 			[]string{"-dv duration", "A contain backed duration flag"},
@@ -183,7 +183,7 @@ func init() {
 		{
 			"RegexContainVar", "rv",
 			[]interface{}{
-				vec,
+				itm,
 				"rv",
 				"rvKey",
 				"A contain backed regex flag",

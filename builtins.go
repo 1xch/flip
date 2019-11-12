@@ -9,16 +9,16 @@ import (
 
 // An interface that handles adding(package builtin commands) by string parameters.
 type Adder interface {
-	AddBuiltIn(string, ...string) Flipper
+	AddBuiltIn(string, ...string) *flipper
 }
 
 type help struct {
-	f        Flipper
+	f        *flipper
 	full     bool
 	commands string
 }
 
-func newHelp(f Flipper) *help {
+func newHelp(f *flipper) *help {
 	return &help{f, true, ""}
 }
 
@@ -65,9 +65,9 @@ func (h *help) command() Command {
 	)
 }
 
-func (f *Flip) addHelp() Flipper {
+func (f *flipper) addHelp() *flipper {
 	h := newHelp(f)
-	f.SetGroup("help", 1000, h.command())
+	f.SetGroup("help", -1000, h.command())
 	return f
 }
 
@@ -77,12 +77,12 @@ func (h *help) reset() {
 }
 
 type version struct {
-	f                                                  Flipper
+	f                                                  *flipper
 	vpackage, tag, hash, date                          string
 	printPackage, printTag, printHash, printDate, full bool
 }
 
-func newVersion(f Flipper, pkg, tag, hash, date string) *version {
+func newVersion(f *flipper, pkg, tag, hash, date string) *version {
 	return &version{
 		f, pkg, tag, hash, date, false, false, false, false, true,
 	}
@@ -157,7 +157,7 @@ func (v *version) command() Command {
 	)
 }
 
-func (f *Flip) addVersion(args ...string) Flipper {
+func (f *flipper) addVersion(args ...string) *flipper {
 	p, t, h, d := "not provided", "not provided", "not provided", "not provided"
 	in := len(args) - 1
 	for i := -1; i <= 3; i++ {
@@ -175,6 +175,6 @@ func (f *Flip) addVersion(args ...string) Flipper {
 		}
 	}
 	v := newVersion(f, p, t, h, d)
-	f.SetGroup("version", 1000, v.command())
+	f.SetGroup("version", -1000, v.command())
 	return f
 }

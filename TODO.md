@@ -2,3 +2,4 @@
 - help text presentation cleanup (make groups visible)
 - tighten internals (i.e. default Executer)
 - higher order golang analysis (e.g. determine memory use)
+- seperate versionDate to date & compiled date
